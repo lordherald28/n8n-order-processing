@@ -4,7 +4,10 @@
 - `develop` es la rama de integración y pruebas.
 - Usa una rama `feature/*` por cada objetivo de desarrollo, creada desde `develop`.
 - Cada objetivo comprobado genera commits reales con mensajes [Conventional Commits](https://www.conventionalcommits.org/).
-- Crea un PR de `feature/*` hacia `develop`. No lo fusiones sin aprobación humana.
+- Codex puede crear ramas feature, commits y Pull Requests.
+- Todo merge hacia develop o main requiere un PR y aprobación explícita del usuario.
+- No hagas force-push, borres ramas remotas ni modifiques Rulesets sin autorización.
+- Si GitHub bloquea una operación, informa del motivo sin intentar evadir la protección.
 - Prueba los cambios integrados en `develop` utilizando n8n local y Cloudflare Tunnel cuando corresponda al objetivo.
 - Solo después de pruebas satisfactorias en `develop`, crea un PR de `develop` hacia `main`.
 - Está prohibido simular commits o historial.

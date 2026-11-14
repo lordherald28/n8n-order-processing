@@ -11,6 +11,9 @@ Este archivo es la autoridad principal de las instrucciones del proyecto. En cas
 - Para cada objetivo, sigue el ciclo: implementar → probar → verificar → commit.
 - Pide autorización antes de instalar software, cambiar Docker o desplegar.
 - No modifiques workflows existentes ajenos al proyecto ni expongas secretos.
+- Codex puede crear ramas feature, commits y Pull Requests. Todo merge requiere autorización humana explícita.
+- No hagas force-push, borres ramas remotas ni modifiques Rulesets sin autorización.
+- Si GitHub bloquea una operación, informa del motivo sin evadir la protección.
 - Sigue [git-flow.md](git-flow.md) y las skills aplicables en `.agents/skills/`.
 
 ## Uso de IA
