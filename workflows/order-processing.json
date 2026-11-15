@@ -38,7 +38,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const p = $json.body;\nconst motivos = [];\nconst texto = x => typeof x === 'string' && x.trim().length > 0;\n// Representa decimales como fracciones exactas.\nconst decimal = x => {\n  if (typeof x !== 'number' || !Number.isFinite(x)) return null;\n  const m = String(x).match(/^(-?)(\\d+)(?:\\.(\\d+))?(?:e([+-]?\\d+))?$/i);\n  if (!m) return null;\n  let n = BigInt(m[2] + (m[3] || '')) * (m[1] ? -1n : 1n);\n  let scale = (m[3] || '').length - Number(m[4] || 0);\n  if (scale < 0) {\n    n *= 10n ** BigInt(-scale);\n    scale = 0;\n  }\n  return { n, d: 10n ** BigInt(scale) };\n};\n// Reúne los motivos de validación del pedido.\nif (!p || typeof p !== 'object' || Array.isArray(p)) motivos.push('El pedido debe ser un objeto JSON');\nif (!texto(p?.cliente)) motivos.push('cliente es obligatorio');\nif (!texto(p?.email)) motivos.push('email es obligatorio');\nelse if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(p.email)) motivos.push('email tiene formato inválido');\nlet sumN = 0n, sumD = 1n, calculable = true;\nif (!Array.isArray(p?.productos) || p.productos.length === 0) {\n  motivos.push('productos debe contener al menos un producto');\n  calculable = false;\n} else {\n  p.productos.forEach((prod, i) => {\n    if (!texto(prod?.nombre)) motivos.push('productos[' + i + '].nombre es obligatorio');\n    const q = decimal(prod?.cantidad), price = decimal(prod?.precio);\n    if (!q || q.n <= 0n) { motivos.push('productos[' + i + '].cantidad debe ser un número positivo'); calculable = false; }\n    if (!price) { motivos.push('productos[' + i + '].precio es obligatorio y debe ser numérico'); calculable = false; }\n    if (q && q.n > 0n && price) {\n      // Acumula el importe exacto expresado en centavos.\n      const n = q.n * price.n * 100n, d = q.d * price.d;\n      sumN = sumN * d + n * sumD;\n      sumD *= d;\n    }\n  });\n}\n// Compara el total sin redondear valores binarios.\nconst total = decimal(p?.total);\nif (!total) motivos.push('total es obligatorio y debe ser numérico');\nelse if (calculable && sumN * total.d !== total.n * 100n * sumD) motivos.push('total no coincide con la suma de cantidad por precio');\nreturn { json: { pedido: p ?? null, valido: motivos.length === 0, motivos } };"
+        "jsCode": "const p = $('POST /pedidos').item.json.body;\nconst motivos = [];\nconst texto = x => typeof x === 'string' && x.trim().length > 0;\n// Representa decimales como fracciones exactas.\nconst decimal = x => {\n  if (typeof x !== 'number' || !Number.isFinite(x)) return null;\n  const m = String(x).match(/^(-?)(\\d+)(?:\\.(\\d+))?(?:e([+-]?\\d+))?$/i);\n  if (!m) return null;\n  let n = BigInt(m[2] + (m[3] || '')) * (m[1] ? -1n : 1n);\n  let scale = (m[3] || '').length - Number(m[4] || 0);\n  if (scale < 0) {\n    n *= 10n ** BigInt(-scale);\n    scale = 0;\n  }\n  return { n, d: 10n ** BigInt(scale) };\n};\n// Reúne los motivos de validación del pedido.\nif (!p || typeof p !== 'object' || Array.isArray(p)) motivos.push('El pedido debe ser un objeto JSON');\nif (!texto(p?.cliente)) motivos.push('cliente es obligatorio');\nif (!texto(p?.email)) motivos.push('email es obligatorio');\nelse if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(p.email)) motivos.push('email tiene formato inválido');\nlet sumN = 0n, sumD = 1n, calculable = true;\nif (!Array.isArray(p?.productos) || p.productos.length === 0) {\n  motivos.push('productos debe contener al menos un producto');\n  calculable = false;\n} else {\n  p.productos.forEach((prod, i) => {\n    if (!texto(prod?.nombre)) motivos.push('productos[' + i + '].nombre es obligatorio');\n    const q = decimal(prod?.cantidad), price = decimal(prod?.precio);\n    if (!q || q.n <= 0n) { motivos.push('productos[' + i + '].cantidad debe ser un número positivo'); calculable = false; }\n    if (!price) { motivos.push('productos[' + i + '].precio es obligatorio y debe ser numérico'); calculable = false; }\n    if (q && q.n > 0n && price) {\n      // Acumula el importe exacto expresado en centavos.\n      const n = q.n * price.n * 100n, d = q.d * price.d;\n      sumN = sumN * d + n * sumD;\n      sumD *= d;\n    }\n  });\n}\n// Compara el total sin redondear valores binarios.\nconst total = decimal(p?.total);\nif (!total) motivos.push('total es obligatorio y debe ser numérico');\nelse if (calculable && sumN * total.d !== total.n * 100n * sumD) motivos.push('total no coincide con la suma de cantidad por precio');\nreturn { json: { pedido: p ?? null, valido: motivos.length === 0, motivos } };"
       },
       "id": "a9549b05-e523-40fa-9a73-482a3e64b664",
       "name": "Validar pedido",
@@ -153,9 +153,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido), nuevo_pedido AS (INSERT INTO public.pedidos (cliente, email, total, estado) SELECT pedido->>'cliente', pedido->>'email', (pedido->>'total')::numeric, CASE WHEN (pedido->>'total')::numeric > 1000 THEN 'PENDING_APPROVAL' ELSE 'PROCESSED' END FROM entrada RETURNING id), nuevos_productos AS (INSERT INTO public.productos (pedido_id, nombre, cantidad, precio) SELECT nuevo_pedido.id, producto->>'nombre', (producto->>'cantidad')::numeric, (producto->>'precio')::numeric FROM entrada CROSS JOIN nuevo_pedido CROSS JOIN LATERAL jsonb_array_elements(entrada.pedido->'productos') AS producto RETURNING id) SELECT nuevo_pedido.id, (SELECT count(*) FROM nuevos_productos) AS productos_guardados FROM nuevo_pedido;",
+        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido, $2::text AS clave, $3::text AS recepcion), guardado AS (\n INSERT INTO public.pedidos (cliente,email,total,estado,idempotency_key,recepcion_id,solicitud_original,aprobacion_intentada)\n SELECT pedido->>'cliente',pedido->>'email',(pedido->>'total')::numeric,\n CASE WHEN (pedido->>'total')::numeric > 1000 THEN 'PENDING_APPROVAL' ELSE 'PROCESSED' END,\n clave,recepcion,pedido,CASE WHEN (pedido->>'total')::numeric > 1000 THEN true ELSE false END FROM entrada\n ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key\n RETURNING id, solicitud_original, (xmax=0) AS nuevo\n), productos_nuevos AS (\n INSERT INTO public.productos (pedido_id,nombre,cantidad,precio)\n SELECT g.id,p->>'nombre',(p->>'cantidad')::numeric,(p->>'precio')::numeric FROM guardado g CROSS JOIN entrada e CROSS JOIN LATERAL jsonb_array_elements(e.pedido->'productos') p WHERE g.nuevo RETURNING id\n)\nSELECT g.id,g.nuevo,(g.solicitud_original=e.pedido) AS coincide,(SELECT count(*) FROM productos_nuevos) AS productos_guardados FROM guardado g CROSS JOIN entrada e;",
         "options": {
-          "queryReplacement": "={{ [JSON.stringify($json.pedido)] }}"
+          "queryReplacement": "={{ [JSON.stringify($('Validar pedido').item.json.pedido), (($('POST /pedidos').item.json.headers?.['idempotency-key'] || '').trim() ? 'header:' + $('POST /pedidos').item.json.headers['idempotency-key'].trim() : 'recepcion:' + $execution.id), String($execution.id)] }}"
         }
       },
       "id": "53aec3f3-9633-4660-a28c-1b72fb7db375",
@@ -165,7 +165,11 @@
       "position": [
         672,
         -80
-      ]
+      ],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
@@ -242,7 +246,8 @@
         -176
       ],
       "webhookId": "02cfc381-44c0-4f54-9e29-c3801216ad55",
-      "retryOnFail": false
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -259,21 +264,361 @@
       "position": [
         1568,
         -176
-      ]
+      ],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "a8617fa0-6208-406f-8b86-18adea8b78a7",
+      "name": "Resguardar pedido",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        -160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "PvQ0DkpO6fBx15Fu",
+          "cachedResultName": "Respaldo pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pedido": "={{ JSON.stringify($json.body ?? null) }}",
+            "idempotency_key": "={{ $json.headers?.['idempotency-key'] ?? '' }}",
+            "recepcion_id": "={{ $execution.id }}"
+          },
+          "schema": [
+            {
+              "id": "pedido",
+              "displayName": "pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "recepcion_id",
+              "displayName": "recepcion_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c29902ae-be24-4d15-a5ac-956d6884beea",
+      "name": "Pedido conservado",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        800,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "coincide",
+              "leftValue": "={{ $json.coincide }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "da3b58c0-2708-4b31-9108-0561ac9da1af",
+      "name": "Pedido nuevo",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1000,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "nuevo",
+              "leftValue": "={{ $json.nuevo }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "14f16e30-d6a7-46e0-967d-cf0809ae4fe5",
+      "name": "Conflicto de clave",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1000,
+        100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"mensaje\":\"La clave ya corresponde a otro pedido\"}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    },
+    {
+      "id": "91a88d0b-5fff-43bf-9f5e-bc41a0711e9f",
+      "name": "Error PostgreSQL",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        -320
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "rTWzaJ72wTvRP9n8",
+          "cachedResultName": "Errores técnicos pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "origen": "PostgreSQL",
+            "recepcion_id": "={{ $execution.id }}",
+            "pedido": "={{ JSON.stringify($('POST /pedidos').item.json.body ?? null) }}",
+            "detalle": "={{ JSON.stringify($json.error ?? $json) }}"
+          },
+          "schema": [
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "recepcion_id",
+              "displayName": "recepcion_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "pedido",
+              "displayName": "pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9b8b62b7-5421-42c3-9e99-b90d05511b5d",
+      "name": "Responder error técnico",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1024,
+        -320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"mensaje\":\"No se pudo procesar el pedido\"}",
+        "options": {
+          "responseCode": 503
+        }
+      }
+    },
+    {
+      "id": "95e77aa4-46b1-4c16-902b-a3e97034ae62",
+      "name": "Error Telegram",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        -400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "rTWzaJ72wTvRP9n8",
+          "cachedResultName": "Errores técnicos pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "origen": "Telegram",
+            "recepcion_id": "={{ $execution.id }}",
+            "pedido": "={{ JSON.stringify($('POST /pedidos').item.json.body ?? null) }}",
+            "detalle": "={{ JSON.stringify($json.error ?? $json) }}"
+          },
+          "schema": [
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "recepcion_id",
+              "displayName": "recepcion_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "pedido",
+              "displayName": "pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a48eac6d-e919-4a40-bf99-7d4e68f02781",
+      "name": "Error decisión",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        -400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "rTWzaJ72wTvRP9n8",
+          "cachedResultName": "Errores técnicos pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "origen": "PostgreSQL decisión",
+            "recepcion_id": "={{ $execution.id }}",
+            "pedido": "={{ JSON.stringify($('POST /pedidos').item.json.body ?? null) }}",
+            "detalle": "={{ JSON.stringify({ pedido_id: $('Guardar pedido').item.json.id, decision: $json.data?.approved ?? null, error: $json.error ?? $json.message }) }}"
+          },
+          "schema": [
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "recepcion_id",
+              "displayName": "recepcion_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "pedido",
+              "displayName": "pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
-    "POST /pedidos": {
-      "main": [
-        [
-          {
-            "node": "Validar pedido",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Validar pedido": {
       "main": [
         [
@@ -308,17 +653,6 @@
         [
           {
             "node": "Responder incidencia",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Guardar pedido": {
-      "main": [
-        [
-          {
-            "node": "Total mayor a 1000",
             "type": "main",
             "index": 0
           }
@@ -362,6 +696,112 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Error Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /pedidos": {
+      "main": [
+        [
+          {
+            "node": "Resguardar pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resguardar pedido": {
+      "main": [
+        [
+          {
+            "node": "Validar pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido": {
+      "main": [
+        [
+          {
+            "node": "Pedido conservado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Responder error técnico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedido conservado": {
+      "main": [
+        [
+          {
+            "node": "Pedido nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conflicto de clave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedido nuevo": {
+      "main": [
+        [
+          {
+            "node": "Total mayor a 1000",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirmar recepción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar decisión": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Error decisión",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
@@ -370,5 +810,35 @@
     "executionOrder": "v1",
     "availableInMCP": true,
     "binaryMode": "separate"
-  }
+  },
+  "nodeGroups": [
+    {
+      "id": "1197000c-b315-4fb3-b815-d30b103f5114",
+      "name": "Validación",
+      "nodeNames": [
+        "Resguardar pedido",
+        "Validar pedido",
+        "Pedido válido"
+      ],
+      "description": "Conserva el pedido original y comprueba sus datos."
+    },
+    {
+      "id": "13beff4c-3eb5-4ec1-8129-a843d3852ad5",
+      "name": "Registrar incidencia",
+      "nodeNames": [
+        "Registrar incidencia",
+        "Responder incidencia"
+      ],
+      "description": "Registra los motivos y responde al pedido inválido."
+    },
+    {
+      "id": "35aa7567-e3f9-43b3-b9f8-ac6ba221c474",
+      "name": "Registrar fallo",
+      "nodeNames": [
+        "Error PostgreSQL",
+        "Responder error técnico"
+      ],
+      "description": "Conserva el error de base de datos y devuelve una respuesta técnica."
+    }
+  ]
 }
