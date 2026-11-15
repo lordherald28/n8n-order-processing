@@ -31,7 +31,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        672,
+        896,
         -80
       ]
     },
@@ -149,6 +149,29 @@
         896,
         160
       ]
+    },
+    {
+      "id": "53aec3f3-9633-4660-a28c-1b72fb7db375",
+      "name": "Guardar pedido",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        672,
+        -80
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido), nuevo_pedido AS (INSERT INTO public.pedidos (cliente, email, total) SELECT pedido->>'cliente', pedido->>'email', (pedido->>'total')::numeric FROM entrada RETURNING id), nuevos_productos AS (INSERT INTO public.productos (pedido_id, nombre, cantidad, precio) SELECT nuevo_pedido.id, producto->>'nombre', (producto->>'cantidad')::numeric, (producto->>'precio')::numeric FROM entrada CROSS JOIN nuevo_pedido CROSS JOIN LATERAL jsonb_array_elements(entrada.pedido->'productos') AS producto RETURNING id) SELECT nuevo_pedido.id, (SELECT count(*) FROM nuevos_productos) AS productos_guardados FROM nuevo_pedido;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.pedido)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "6jqR3epa5Zop0Hno",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -178,7 +201,7 @@
       "main": [
         [
           {
-            "node": "Confirmar recepción",
+            "node": "Guardar pedido",
             "type": "main",
             "index": 0
           }
@@ -197,6 +220,17 @@
         [
           {
             "node": "Responder incidencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido": {
+      "main": [
+        [
+          {
+            "node": "Confirmar recepción",
             "type": "main",
             "index": 0
           }

@@ -15,4 +15,8 @@ El workflow `workflows/order-processing.json` recibe pedidos en `POST /pedidos`.
 
 El export referencia la tabla de esta instancia; al importarlo en otra, crea una tabla con las columnas de texto `pedido` y `motivos` y selecciónala en el nodo `Registrar incidencia`. El registro contiene el pedido serializado y la lista de motivos. Los ejemplos están en `samples/pedido.json` y `samples/pedido-invalido.json`; las pruebas y resultados se encuentran en `samples/probar-objetivo-3.ps1` y `samples/resultados-objetivo-3.md`.
 
-No se guardan pedidos válidos en PostgreSQL ni se incluyen Telegram o aprobaciones.
+## Persistencia en PostgreSQL (objetivo 4.2)
+
+Los pedidos válidos se guardan en `pedidos` junto con sus productos en `productos`, mediante una consulta parametrizada y atómica. La confirmación se emite después de guardar. La rama de incidencias permanece sin cambios. El esquema está en `sql/objetivo-4.2.sql` y los resultados en `samples/resultados-objetivo-4.2.md`.
+
+Al importar el workflow, configura una credencial PostgreSQL propia en el nodo `Guardar pedido` y selecciona la tabla de incidencias de la instancia. No incluyas contraseñas en el export ni en el repositorio. No se incluyen Telegram ni aprobaciones.
