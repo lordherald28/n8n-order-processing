@@ -1,0 +1,56 @@
+{
+  "name": "Order Processing",
+  "nodes": [
+    {
+      "id": "a72d95e2-ac97-4b0c-a450-a7896b49b6af",
+      "name": "POST /pedidos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pedidos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "38bc7085-11d5-42b3-b952-e4c3b52ae5e6"
+    },
+    {
+      "id": "0ac1e7fb-89f6-4b78-b3fa-f8000d8cec2c",
+      "name": "Confirmar recepción",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"mensaje\":\"Pedido recibido\"}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "POST /pedidos": {
+      "main": [
+        [
+          {
+            "node": "Confirmar recepción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}
