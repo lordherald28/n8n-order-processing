@@ -1,20 +1,14 @@
 # Objetivo 2: recepción de pedidos
 
-El workflow `Order Processing` recibe `POST /pedidos` y responde únicamente `{"mensaje":"Pedido recibido"}`. No incluye validaciones, PostgreSQL ni Telegram. El ejemplo enviado está en `samples/pedido.json`.
+El workflow `Order Processing` recibe `POST /pedidos` y responde únicamente `{"mensaje":"Pedido recibido"}`. No incluye validaciones, PostgreSQL ni Telegram. El ejemplo enviado, con dos productos en el array, está en `samples/pedido.json`.
 
-## Prueba HTTP real
+## Verificaciones
 
-Con el workflow publicado temporalmente en n8n local se ejecutó desde PowerShell:
+- MCP: validación correcta de los dos nodos y del workflow.
+- PowerShell: durante la prueba técnica previa, la petición HTTP real devolvió 200 y `{"mensaje":"Pedido recibido"}`. La ejecución webhook `2` terminó correctamente; el registro MCP confirma la recepción de `cliente`, `email`, `productos` y `total`.
+- Bruno: el usuario importó manualmente el workflow JSON en n8n y confirmó que probó el webhook satisfactoriamente. El pedido de prueba actual incluye dos productos en el array `productos` y total 60.
+- Tras la prueba HTTP de PowerShell, el workflow se despublicó y MCP confirmó que quedó inactivo.
 
-```powershell
-$body = Get-Content -Raw -Encoding UTF8 samples/pedido.json
-Invoke-WebRequest -Uri 'http://localhost:5678/webhook/pedidos' -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -UseBasicParsing
-```
+## Correspondencia del JSON
 
-Resultado: HTTP 200, `Content-Type: application/json; charset=utf-8`, cuerpo `{"mensaje":"Pedido recibido"}`. La ejecución webhook `2` terminó correctamente y el MCP confirmó que recibió cliente, email, productos y total. Los dos nodos y el workflow también pasaron la validación MCP. El workflow fue despublicado después de la prueba y su estado inactivo se confirmó mediante MCP.
-
-Antes de publicarlo, una solicitud a `/webhook-test/pedidos` devolvió HTTP 404 porque no había un escuchador de prueba activo. La ejecución manual MCP `1` terminó correctamente, pero por sí sola no verificó la respuesta HTTP.
-
-## Archivo del workflow
-
-`workflows/order-processing.json` contiene el nombre, nodos, conexiones y ajustes obtenidos de `get_workflow_details` mediante MCP. El MCP no expone una herramienta específica de exportación; el archivo se construyó con esos datos y su importación no se ha verificado.
+Comparé `workflows/order-processing.json` con la definición actual obtenida por `get_workflow_details` mediante MCP. Coinciden el nombre, nodos y sus parámetros, conexiones y ajustes. El archivo conserva la definición importada y probada manualmente por Bruno, según la confirmación del usuario.
