@@ -1,0 +1,8 @@
+{
+  "cliente": "Prueba ODD idempotencia",
+  "email": "idempotencia@example.test",
+  "productos": [
+    { "nombre": "Artículo de prueba", "cantidad": 2, "precio": 20 }
+  ],
+  "total": 40
+}
