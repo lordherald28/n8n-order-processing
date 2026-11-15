@@ -19,4 +19,12 @@ El export referencia la tabla de esta instancia; al importarlo en otra, crea una
 
 Los pedidos válidos se guardan en `pedidos` junto con sus productos en `productos`, mediante una consulta parametrizada y atómica. La confirmación se emite después de guardar. La rama de incidencias permanece sin cambios. El esquema está en `sql/objetivo-4.2.sql` y los resultados en `samples/resultados-objetivo-4.2.md`.
 
-Al importar el workflow, configura una credencial PostgreSQL propia en el nodo `Guardar pedido` y selecciona la tabla de incidencias de la instancia. No incluyas contraseñas en el export ni en el repositorio. No se incluyen Telegram ni aprobaciones.
+Al importar el workflow, configura una credencial PostgreSQL propia en los nodos PostgreSQL y selecciona la tabla de incidencias de la instancia. No incluyas contraseñas en el export ni en el repositorio.
+
+## Aprobación de pedidos (objetivo 5)
+
+La migración `sql/objetivo-5.sql` añade el estado sin asignar uno a los pedidos anteriores. Los pedidos nuevos de hasta 1.000 se guardan como `PROCESSED`; los superiores se guardan como `PENDING_APPROVAL`. El nodo de decisión solo modifica filas pendientes y asigna `APPROVED` o `REJECTED`. Las pruebas reales están documentadas en `samples/resultados-objetivo-5.md`.
+
+Al importar el JSON, selecciona tus credenciales PostgreSQL y Telegram, y escribe tu propio Chat ID en `Solicitar aprobación`. El JSON no incluye credenciales ni Chat ID. El nodo nativo genera enlaces de respuesta a partir de la URL de n8n; esta debe ser válida para Telegram y accesible para la persona que responde. Para la prueba se utilizó temporalmente una URL HTTPS de ngrok ya disponible y configurada en n8n; la dirección concreta no forma parte del export. Cada entorno debe configurar su propia URL externa y mantenerla disponible mientras haya aprobaciones pendientes.
+
+El webhook confirma la recepción después de guardar el pedido y antes de enviar la solicitud a Telegram. Si el envío falla, el pedido permanece en `PENDING_APPROVAL`; la confirmación de recepción no demuestra que se haya enviado la solicitud.
