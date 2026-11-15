@@ -195,4 +195,12 @@ Las muestras usan datos ficticios. Las tablas de respaldo e incidencias pueden c
 
 ## Documentación y capturas
 
-No se incluyen capturas en esta entrega porque no había capturas reales disponibles en el repositorio ni acceso a una sesión n8n/Telegram para producirlas. Consulta [`docs/images/README.md`](docs/images/README.md) para los criterios de incorporación; no se presenta un directorio vacío como evidencia.
+### Workflow en n8n
+
+![Vista real del workflow Order Processing en n8n](docs/images/n8n-order-processing.png)
+
+### Solicitudes de aprobación en Telegram
+
+![Solicitudes reales de aprobación de pedidos en Telegram](docs/images/telegram-approval.png)
+
+Consulta [`docs/images/README.md`](docs/images/README.md) para el inventario de capturas.
