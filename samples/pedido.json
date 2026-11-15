@@ -1,0 +1,9 @@
+{
+  "cliente": "Cliente de prueba",
+  "email": "cliente@example.com",
+  "productos": [
+    { "nombre": "Producto de prueba", "cantidad": 2, "precio": 15 },
+    { "nombre": "Producto de prueba", "cantidad": 2, "precio": 15 }
+  ],
+  "total": 60
+}

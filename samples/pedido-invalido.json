@@ -1,0 +1,8 @@
+{
+  "cliente": "Cliente de prueba",
+  "email": "correo-invalido",
+  "productos": [
+    { "nombre": "Producto de prueba", "cantidad": 0, "precio": 15 }
+  ],
+  "total": 30
+}

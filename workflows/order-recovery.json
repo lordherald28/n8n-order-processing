@@ -1,0 +1,295 @@
+{
+  "name": "Order Processing - Recuperación manual",
+  "nodes": [
+    {
+      "id": "98ee2cc5-87d3-4d41-b57c-33d7a8032b14",
+      "name": "Inicio manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "67a58c01-3ea3-4055-8e6d-0911ce1a39eb",
+      "name": "Seleccionar recepción",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "recepcion",
+              "name": "recepcion_id",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e9e3d526-d191-4daa-9f97-3d5f05b67fc4",
+      "name": "Comprobar fallo PostgreSQL",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "rTWzaJ72wTvRP9n8",
+          "cachedResultName": "Errores técnicos pedidos"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "recepcion_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.recepcion_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "fa103ddd-5466-4dd4-9952-f4a009922b64",
+      "name": "Leer respaldo",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "PvQ0DkpO6fBx15Fu",
+          "cachedResultName": "Respaldo pedidos"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "recepcion_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.recepcion_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "75b4de86-efdf-425e-afe7-dc48172711a3",
+      "name": "Recuperar pedido",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido, $2::text AS clave, $3::text AS recepcion), guardado AS (\n INSERT INTO public.pedidos (cliente,email,total,estado,idempotency_key,recepcion_id,solicitud_original,aprobacion_intentada)\n SELECT pedido->>'cliente',pedido->>'email',(pedido->>'total')::numeric,\n CASE WHEN (pedido->>'total')::numeric > 1000 THEN 'PENDING_APPROVAL' ELSE 'PROCESSED' END,\n clave,recepcion,pedido,CASE WHEN (pedido->>'total')::numeric > 1000 THEN true ELSE false END FROM entrada\n ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key\n RETURNING id, solicitud_original, (xmax=0) AS nuevo\n), productos_nuevos AS (\n INSERT INTO public.productos (pedido_id,nombre,cantidad,precio)\n SELECT g.id,p->>'nombre',(p->>'cantidad')::numeric,(p->>'precio')::numeric FROM guardado g CROSS JOIN entrada e CROSS JOIN LATERAL jsonb_array_elements(e.pedido->'productos') p WHERE g.nuevo RETURNING id\n)\nSELECT g.id,g.nuevo,(g.solicitud_original=e.pedido) AS coincide,(SELECT count(*) FROM productos_nuevos) AS productos_guardados FROM guardado g CROSS JOIN entrada e;",
+        "options": {
+          "queryReplacement": "={{ [$json.pedido, ($json.idempotency_key || '').trim() ? 'header:' + $json.idempotency_key.trim() : 'recepcion:' + $json.recepcion_id, String($json.recepcion_id)] }}"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "1a324fc8-0fa5-4292-8736-989149942396",
+      "name": "¿Fallo de decisión?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        700,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d",
+              "leftValue": "={{ $json.origen }}",
+              "rightValue": "PostgreSQL decisión",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bfa33bc8-e789-4942-a48a-1803386c8140",
+      "name": "¿Fallo de pedido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        900,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p",
+              "leftValue": "={{ $json.origen }}",
+              "rightValue": "PostgreSQL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a4dc605c-b34b-48ca-bfcd-11e03dd2e7ca",
+      "name": "Recuperar decisión",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1100,
+        -100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.pedidos SET estado = CASE WHEN $2::boolean THEN 'APPROVED' ELSE 'REJECTED' END WHERE id = $1::bigint AND estado = 'PENDING_APPROVAL' AND $2::boolean IS NOT NULL RETURNING id, estado;",
+        "options": {
+          "queryReplacement": "={{ [JSON.parse($json.detalle).pedido_id, JSON.parse($json.detalle).decision] }}"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "Inicio manual": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar recepción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleccionar recepción": {
+      "main": [
+        [
+          {
+            "node": "Comprobar fallo PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer respaldo": {
+      "main": [
+        [
+          {
+            "node": "Recuperar pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comprobar fallo PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "¿Fallo de decisión?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Fallo de decisión?": {
+      "main": [
+        [
+          {
+            "node": "Recuperar decisión",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Fallo de pedido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Fallo de pedido?": {
+      "main": [
+        [
+          {
+            "node": "Leer respaldo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "nodeGroups": [
+    {
+      "id": "7e4c343c-03a2-4307-a8e7-cbf83a9fa591",
+      "name": "Seleccionar incidencia",
+      "nodeNames": [
+        "Seleccionar recepción",
+        "Comprobar fallo PostgreSQL"
+      ],
+      "description": "Busca el fallo seleccionado para recuperarlo."
+    }
+  ]
+}
