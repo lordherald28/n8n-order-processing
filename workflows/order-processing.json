@@ -31,8 +31,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        896,
-        -80
+        1120,
+        16
       ]
     },
     {
@@ -151,6 +151,13 @@
       ]
     },
     {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido), nuevo_pedido AS (INSERT INTO public.pedidos (cliente, email, total, estado) SELECT pedido->>'cliente', pedido->>'email', (pedido->>'total')::numeric, CASE WHEN (pedido->>'total')::numeric > 1000 THEN 'PENDING_APPROVAL' ELSE 'PROCESSED' END FROM entrada RETURNING id), nuevos_productos AS (INSERT INTO public.productos (pedido_id, nombre, cantidad, precio) SELECT nuevo_pedido.id, producto->>'nombre', (producto->>'cantidad')::numeric, (producto->>'precio')::numeric FROM entrada CROSS JOIN nuevo_pedido CROSS JOIN LATERAL jsonb_array_elements(entrada.pedido->'productos') AS producto RETURNING id) SELECT nuevo_pedido.id, (SELECT count(*) FROM nuevos_productos) AS productos_guardados FROM nuevo_pedido;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.pedido)] }}"
+        }
+      },
       "id": "53aec3f3-9633-4660-a28c-1b72fb7db375",
       "name": "Guardar pedido",
       "type": "n8n-nodes-base.postgres",
@@ -158,20 +165,101 @@
       "position": [
         672,
         -80
-      ],
+      ]
+    },
+    {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH entrada AS (SELECT $1::jsonb AS pedido), nuevo_pedido AS (INSERT INTO public.pedidos (cliente, email, total) SELECT pedido->>'cliente', pedido->>'email', (pedido->>'total')::numeric FROM entrada RETURNING id), nuevos_productos AS (INSERT INTO public.productos (pedido_id, nombre, cantidad, precio) SELECT nuevo_pedido.id, producto->>'nombre', (producto->>'cantidad')::numeric, (producto->>'precio')::numeric FROM entrada CROSS JOIN nuevo_pedido CROSS JOIN LATERAL jsonb_array_elements(entrada.pedido->'productos') AS producto RETURNING id) SELECT nuevo_pedido.id, (SELECT count(*) FROM nuevos_productos) AS productos_guardados FROM nuevo_pedido;",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "total",
+              "leftValue": "={{ $('Validar pedido').item.json.pedido.total }}",
+              "rightValue": 1000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "666a1df4-d58e-46e9-afcd-0da7bf7f598c",
+      "name": "Total mayor a 1000",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        896,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"mensaje\":\"Pedido recibido\"}",
         "options": {
-          "queryReplacement": "={{ [JSON.stringify($json.pedido)] }}"
+          "responseCode": 200
         }
       },
-      "credentials": {
-        "postgres": {
-          "id": "6jqR3epa5Zop0Hno",
-          "name": "Postgres account"
+      "id": "c9967c47-d18e-48e3-95cd-00f137e58fd7",
+      "name": "Confirmar pendiente",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "",
+        "message": "=Pedido {{ $('Guardar pedido').item.json.id }}. Total: {{ $('Validar pedido').item.json.pedido.total }}. ¿Aprobar?",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Aprobar",
+            "disapproveLabel": "Rechazar"
+          }
+        },
+        "options": {
+          "appendAttribution": false
         }
-      }
+      },
+      "id": "891a8dd3-ec14-4764-bfd6-6460195341ce",
+      "name": "Solicitar aprobación",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        -176
+      ],
+      "webhookId": "02cfc381-44c0-4f54-9e29-c3801216ad55",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.pedidos SET estado = CASE WHEN $2::boolean THEN 'APPROVED' ELSE 'REJECTED' END WHERE id = $1::bigint AND estado = 'PENDING_APPROVAL' AND $2::boolean IS NOT NULL RETURNING id, estado;",
+        "options": {
+          "queryReplacement": "={{ [$('Guardar pedido').item.json.id, $json.data?.approved ?? null] }}"
+        }
+      },
+      "id": "f3b0e07c-ee1c-4e49-9610-0b0522646ca7",
+      "name": "Registrar decisión",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1568,
+        -176
+      ]
     }
   ],
   "connections": {
@@ -230,7 +318,47 @@
       "main": [
         [
           {
+            "node": "Total mayor a 1000",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total mayor a 1000": {
+      "main": [
+        [
+          {
+            "node": "Confirmar pendiente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Confirmar recepción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar pendiente": {
+      "main": [
+        [
+          {
+            "node": "Solicitar aprobación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Solicitar aprobación": {
+      "main": [
+        [
+          {
+            "node": "Registrar decisión",
             "type": "main",
             "index": 0
           }
