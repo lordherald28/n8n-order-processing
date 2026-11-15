@@ -1,0 +1,8 @@
+{
+  "cliente": "Prueba ODD límite",
+  "email": "limite@example.test",
+  "productos": [
+    { "nombre": "Artículo de prueba", "cantidad": 1, "precio": 1000 }
+  ],
+  "total": 1000
+}
