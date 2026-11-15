@@ -10,6 +10,9 @@ Este archivo es la autoridad principal de las instrucciones del proyecto. En cas
 - Codex puede resolver detalles técnicos menores necesarios para el objetivo actual, pero no ampliar su alcance.
 - Para cada objetivo, sigue el ciclo: implementar → probar → verificar → commit.
 - Pide autorización antes de instalar software, cambiar Docker o desplegar.
+- El MCP oficial de n8n, configurado y autenticado mediante OAuth, es el mecanismo obligatorio y prioritario para interactuar con n8n.
+- Está prohibido usar automatización gráfica (UI/browser) o modificar directamente la base de datos interna de n8n. Si el MCP no permite una operación necesaria, describe la limitación y solicita autorización explícita antes de usar cualquier alternativa.
+- Respeta siempre los permisos y el alcance concedidos por OAuth; limita las operaciones a los recursos pertenecientes a este proyecto y no consultes ni modifiques recursos ajenos.
 - No modifiques workflows existentes ajenos al proyecto ni expongas secretos.
 - Codex puede crear ramas feature, commits y Pull Requests. Todo merge requiere autorización humana explícita.
 - No hagas force-push, borres ramas remotas ni modifiques Rulesets sin autorización.
